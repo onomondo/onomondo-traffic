@@ -64,3 +64,5 @@ typings/
 local.json
 
 package-lock.json
+tmp
+traffic.pcap

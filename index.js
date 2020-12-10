@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const AWS = require('aws-sdk')
 const fs = require('fs')
 const { parse, format, addDays, startOfDay } = require('date-fns')
@@ -5,19 +7,41 @@ const filesize = require('filesize')
 const log = require('single-line-log').stdout
 const path = require('path')
 const { spawn } = require('child_process')
+const minimist = require('minimist')
+const pkgJson = require('./package.json')
 
 process.env.TZ = 'UTC' // Only work in UTC (I quit if I have to work more with date/time...)
+const argv = minimist(process.argv.slice(2), { string: 'simid' })
+const apiUrl = argv.api || 'https://api.onomondo.com'
+const from = argv.from
+const to = argv.to
+const s3Bucket = argv['s3-bucket']
+const s3Region = argv['s3-region']
+const awsAccessKeyId = argv['aws-access-key-id']
+const awsSecretAccessKey = argv['aws-secret-access-key']
+const hasAllRequiredParams = from && to && s3Bucket && s3Region && awsAccessKeyId && awsSecretAccessKey
+
+if (!hasAllRequiredParams) {
+  console.error([
+    `Onomondo Traffic Fetcher ${pkgJson.version}`,
+    'Fetch your organization\'s traffic based on ip, iccid, or simid',
+    '',
+    'Some parameters are missing. See documentation on https://github.com/onomondo/onomondo-traffic-fetcher'
+  ].join('\n'))
+  process.exit(1)
+}
+
+console.log(argv)
 AWS.config.update({
-  region: process.env.S3_REGION,
-  // endpoint: process.env.S3_ENDPOINT, // only for local development
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  region: s3Region,
+  accessKeyId: awsAccessKeyId,
+  secretAccessKey: awsSecretAccessKey
 })
 const s3 = new AWS.S3({ apiVersion: '2006-03-01' })
 
 start({
-  from: new Date('2020-12-10T06:00Z'),
-  to: new Date('2020-12-10T07:15Z'),
+  from: new Date(from),
+  to: new Date(to),
   ips: ['100.64.17.39']
 })
 
@@ -73,7 +97,7 @@ async function downloadObject (s3Key) {
     const pcapFilename = path.join(__dirname, 'tmp', 'traffic', s3Key.replace(/\//g, '-'))
     const stream = fs.createWriteStream(pcapFilename)
     s3.getObject({
-      Bucket: process.env.S3_BUCKET,
+      Bucket: s3Bucket,
       Key: s3Key
     }).createReadStream()
       .pipe(stream)
@@ -113,7 +137,7 @@ async function getObjectsToFetch ({ from, to }) {
 
   const keyTimestamp = format(from, 'yyyy/MM/dd')
   const { Contents: allItemsFromDay } = await s3.listObjects({
-    Bucket: process.env.S3_BUCKET,
+    Bucket: s3Bucket,
     Prefix: keyTimestamp
   }).promise()
   const itemsFiltered = allItemsFromDay
