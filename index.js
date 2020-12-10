@@ -31,7 +31,6 @@ if (!hasAllRequiredParams) {
   process.exit(1)
 }
 
-console.log(argv)
 AWS.config.update({
   region: s3Region,
   accessKeyId: awsAccessKeyId,
@@ -47,8 +46,8 @@ start({
 
 async function start ({ from, to, ips }) {
   // Setup (remove ./tmp, create ./tmp)
-  fs.rmdirSync(path.join(__dirname, 'tmp'), { recursive: true })
-  fs.mkdirSync(path.join(__dirname, 'tmp', 'traffic'), { recursive: true })
+  fs.rmdirSync('tmp', { recursive: true })
+  fs.mkdirSync(path.join('tmp', 'traffic'), { recursive: true })
 
   // Convert ICCID/SimID into ip addresses
 
@@ -86,7 +85,7 @@ async function start ({ from, to, ips }) {
   console.log('Done filtering relevant packets')
 
   // Clean up
-  fs.rmdirSync(path.join(__dirname, 'tmp'), { recursive: true })
+  fs.rmdirSync('tmp', { recursive: true })
 
   // Mention where file is
   console.log(`\nComplete. File is stored at ${trafficFilename}`)
@@ -94,7 +93,7 @@ async function start ({ from, to, ips }) {
 
 async function downloadObject (s3Key) {
   return new Promise((resolve, reject) => {
-    const pcapFilename = path.join(__dirname, 'tmp', 'traffic', s3Key.replace(/\//g, '-'))
+    const pcapFilename = path.join('tmp', 'traffic', s3Key.replace(/\//g, '-'))
     const stream = fs.createWriteStream(pcapFilename)
     s3.getObject({
       Bucket: s3Bucket,
@@ -108,7 +107,7 @@ async function downloadObject (s3Key) {
 
 async function mergePcapFiles (pcapFilenames) {
   return new Promise((resolve, reject) => {
-    const mergeFilename = path.join(__dirname, 'tmp', 'merged.pcap')
+    const mergeFilename = path.join('tmp', 'merged.pcap')
     const mergecap = spawn('mergecap', [
       ...pcapFilenames,
       '-w', mergeFilename
@@ -120,7 +119,7 @@ async function mergePcapFiles (pcapFilenames) {
 
 async function filterFile (mergeFilename, ips) {
   return new Promise((resolve, reject) => {
-    const filteredFilename = path.join(__dirname, 'traffic.pcap')
+    const filteredFilename = 'traffic.pcap'
     const args = [
       '-r', mergeFilename,
       '-w', filteredFilename,
