@@ -1,13 +1,12 @@
 {
-  "name": "onomondo-js-template",
+  "name": "onomondo-traffic-fetcher",
   "version": "1.0.0",
-  "description": "Template repo for JS projects",
+  "description": "Fetch your organization's traffic based on ip, iccid, or simid",
   "engines": {
     "node": "^14.8.0"
   },
   "scripts": {
-    "start": "RELEASE=`git rev-parse HEAD` nodemon index.js",
-    "start-production": "RELEASE=`git rev-parse HEAD` node index.js",
+    "start": "node index.js",
     "lint": "eslint --ignore-path .gitignore .",
     "test": "yarn lint"
   },
@@ -17,10 +16,12 @@
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^4.2.1",
-    "eslint-plugin-standard": "^5.0.0",
-    "nodemon": "^2.0.6"
+    "eslint-plugin-standard": "^5.0.0"
   },
   "dependencies": {
-    "load-environment": "^3.0.0"
+    "aws-sdk": "^2.807.0",
+    "date-fns": "^2.16.1",
+    "filesize": "^6.1.0",
+    "single-line-log": "^1.1.2"
   }
 }
