@@ -19,7 +19,7 @@ $ onomondo-traffic-fetcher \
 --from=2020-12-20T05:00:00Z \
 --to=2020-12-20T07:30:00Z \
 --iccid=8991101200003204514 \
---onomondo-token=abc123def456ghi \
+--token=abc123def456ghi \
 --s3-bucket=mycompany-bucket \
 --s3-region=eu-central-1 \
 --aws-access-key-id=AKAI1234ABCDEFGF \
@@ -46,7 +46,7 @@ Filter traffic based on this IP.
 
 Filter traffic based on this iccid.
 
-**Requires you to specify --onomondo-token**
+**Requires you to specify --token**
 
 *You can specify multiple iccid''s like `--iccid=... --iccid=...`*
 
@@ -54,11 +54,11 @@ Filter traffic based on this iccid.
 
 Filter traffic based on this simid.
 
-**Requires you to specify --onomondo-token**
+**Requires you to specify --token**
 
 *You can specify multiple simid''s like `--simid=... --simid=...`*
 
-### --onomondo-token=abc123def456ghi789 (optional)
+### --token=abc123def456ghi789 (optional)
 
 You only need to specify this if you use `--iccid` or `--simid`. This is because `onomondo-traffic-fetcher` need to convert the iccid/simid into an ip address.
 
