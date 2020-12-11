@@ -12,6 +12,10 @@ Install this way: `$ npm i -g onomondo-traffic-fetcher`
 
 ## Examples
 
+These examples downloads traffic from either AWS S3 or Azure Blob Storage
+
+### AWS S3
+
 Download traffic between 5 and 7:30 on Dec 20th, from s3, filtering out traffic from a specific iccid:
 
 ```
@@ -24,6 +28,20 @@ $ onomondo-traffic-fetcher \
 --s3-region=eu-central-1 \
 --aws-access-key-id=AKAI1234ABCDEFGF \
 --aws-secret-access-key=ghjKJH1234KJHkjhbnmY
+```
+
+### Azure Blob Storage
+
+Download traffic between 5 and 7:30 on Dec 20th, from s3, filtering out traffic from a specific iccid:
+
+```
+$ onomondo-traffic-fetcher \
+--from=2020-12-20T05:00:00Z \
+--to=2020-12-20T07:30:00Z \
+--iccid=8991101200003204514 \
+--token=abc123def456ghi \
+--blob-storage-connection-string="DefaultEndpointsProtocol=https;AccountName=foobarbaz;AccountKey=a1b2c3;EndpointSuffix=core.windows.net" \
+--blob-storage-container-name=my-container-name
 ```
 
 ## Parameters
