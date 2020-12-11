@@ -143,7 +143,6 @@ async function run () {
   console.log('\nComplete. File is stored at traffic.pcap')
 }
 
-
 async function downloadAllPcapFilesOnBlobStorage (pcapFilesOnBlobStorage) {
   const totalFiles = pcapFilesOnBlobStorage.length
   const totalSize = pcapFilesOnBlobStorage.reduce((totalSize, { properties: { contentLength } }) => totalSize + contentLength, 0)
