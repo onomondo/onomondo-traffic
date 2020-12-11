@@ -4,9 +4,27 @@ Fetch your organization's traffic based on ip, iccid, or simid.
 
 This is a tool for organizations that are using Onomondo Fleet Storage.
 
+## Installation
+
+You need to have `node.js` and `wireshark` installed on your system.
+
+Install this way: `$ npm i -g onomondo-traffic-fetcher`
+
 ## Examples
 
-`$ onomondo-traffic-fetcher --from=2020-12-20T05:00:00Z --to=2020-12-20T05:00:00Z --iccid=8991101200003204514 --onomondo-token=abc123def456ghi --s3-bucket=mycompany-bucket --s3-region=eu-central-1 --aws-access-key-id=AKAI1234ABCDEFGF --aws-secret-access-key=ghjKJH1234KJHkjhbnmY`
+Download traffic between 5 and 7:30 on Dec 20th, from s3, filtering out traffic from a specific iccid:
+
+```
+$ onomondo-traffic-fetcher \
+--from=2020-12-20T05:00:00Z \
+--to=2020-12-20T07:30:00Z \
+--iccid=8991101200003204514 \
+--onomondo-token=abc123def456ghi \
+--s3-bucket=mycompany-bucket \
+--s3-region=eu-central-1 \
+--aws-access-key-id=AKAI1234ABCDEFGF \
+--aws-secret-access-key=ghjKJH1234KJHkjhbnmY
+```
 
 ## Parameters
 
