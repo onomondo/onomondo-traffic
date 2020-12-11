@@ -49,12 +49,18 @@ if (!hasTokenIfNeeded) {
 }
 
 if (isUsingS3 && !hasAllS3Params) {
-  console.error('If you use S3, you need to specify all these parameters: --s3-bucket, --s3-region, --aws-access-key-id, --aws-secret-access-key')
+  console.error('If you use AWS S3, you need to specify all these parameters: --s3-bucket, --s3-region, --aws-access-key-id, --aws-secret-access-key')
   console.error('See https://github.com/onomondo/onomondo-traffic-fetcher for more information')
   process.exit(1)
 }
 
 if (isUsingBlobStorage && !hasAllBlobStorageParams) {
+  console.error('If you use Azure Blob Storage, you need to specify all these parameters: --blob-storage-connection-string, --blob-storage-container-name')
+  console.error('See https://github.com/onomondo/onomondo-traffic-fetcher for more information')
+  process.exit(1)
+}
+
+if (!isUsingBlobStorage && !isUsingS3) {
   console.error('You need to either specify an AWS S3 or Azure Blob Storage configuration')
   console.error('See https://github.com/onomondo/onomondo-traffic-fetcher for more information')
   process.exit(1)
