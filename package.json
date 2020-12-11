@@ -1,7 +1,7 @@
 {
   "name": "onomondo-traffic-fetcher",
   "bin": "./index.js",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Fetch your organization's traffic based on ip, iccid, or simid",
   "repository": "git@github.com:onomondo/onomondo-traffic-fetcher.git",
   "engines": {
