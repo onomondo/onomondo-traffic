@@ -75,4 +75,5 @@ If you are using AWS S3 then these paramters are required.
 
 If you are uzing Azure Blob Storage then these parameters are required.
 
-... (to be added)
+### --blob-storage-connection-string
+### --blob-storage-container-name

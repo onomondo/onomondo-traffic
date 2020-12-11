@@ -21,6 +21,7 @@
     "eslint-plugin-standard": "^5.0.0"
   },
   "dependencies": {
+    "@azure/storage-blob": "^12.3.0",
     "aws-sdk": "^2.807.0",
     "axios": "^0.21.0",
     "date-fns": "^2.16.1",
