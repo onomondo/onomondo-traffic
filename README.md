@@ -62,36 +62,34 @@ Filter traffic based on this IP.
 
 ### --iccid=8991101200003204514 (optional)
 
-Filter traffic based on this iccid.
-
-**Requires you to specify --token**
+Filter traffic based on this iccid. **Requires you to specify --token**
 
 *You can specify multiple iccid''s like `--iccid=... --iccid=...`*
 
 ### --simid=000000001 (optional)
 
-Filter traffic based on this simid.
-
-**Requires you to specify --token**
+Filter traffic based on this simid. **Requires you to specify --token**
 
 *You can specify multiple simid''s like `--simid=... --simid=...`*
 
 ### --token=abc123def456ghi789 (optional)
 
-You only need to specify this if you use `--iccid` or `--simid`. This is because `onomondo-traffic-fetcher` need to convert the iccid/simid into an ip address.
+This is the token for Onomondo api. You only need to specify this if you use `--iccid` or `--simid`. This is because `onomondo-traffic-fetcher` needs to convert the iccid/simid into an ip address.
 
-## AWS S3
+## Storage Providers
+
+### AWS S3
 
 If you are using AWS S3 then these paramters are required.
 
-### --s3-bucket=mycompany-bucket
-### --s3-region=eu-central-1
-### --aws-access-key-id=AKAI1234ABCDEFGF
-### --aws-secret-access-key=ghjKJH1234KJHkjhbnmY
+#### --s3-bucket=mycompany-bucket
+#### --s3-region=eu-central-1
+#### --aws-access-key-id=AKAI1234ABCDEFGF
+#### --aws-secret-access-key=ghjKJH1234KJHkjhbnmY
 
 ### Azure Blob Storage
 
 If you are uzing Azure Blob Storage then these parameters are required.
 
-### --blob-storage-connection-string
-### --blob-storage-container-name
+#### --blob-storage-connection-string
+#### --blob-storage-container-name
