@@ -20,6 +20,7 @@ const simIds = typeof argv.simid === 'string' ? [argv.simid] : (argv.simid || []
 const ips = typeof argv.ip === 'string' ? [argv.ip] : (argv.ip || [])
 const token = argv.token
 const apiUrl = argv.api || 'https://api.onomondo.com'
+const organizationId = argv.organizationid
 const s3Bucket = argv['s3-bucket']
 const s3Region = argv['s3-region']
 const awsAccessKeyId = argv['aws-access-key-id']
@@ -27,16 +28,8 @@ const awsSecretAccessKey = argv['aws-secret-access-key']
 const hasAllRequiredParams = from && to && s3Bucket && s3Region && awsAccessKeyId && awsSecretAccessKey
 const hasTokenIfNeeded = (iccIds.length || simIds.length) ? !!token : true
 const areDatesValid = isValid(from) && isValid(to)
-
-if (!hasAllRequiredParams) {
-  console.error([
-    `Onomondo Traffic Fetcher ${pkgJson.version}`,
-    'Fetch your organization\'s traffic based on ip, iccid, or simid',
-    '',
-    'Some parameters are missing. See documentation on https://github.com/onomondo/onomondo-traffic-fetcher'
-  ].join('\n'))
-  process.exit(1)
-}
+const isUsingS3 = s3Bucket || s3Region || awsAccessKeyId || awsSecretAccessKey
+const hasAllS3Params = s3Bucket && s3Region && awsAccessKeyId && awsSecretAccessKey
 
 if (!areDatesValid) {
   console.error('The dates are not valid. Needs to be in a format like --from=2020-12-20T18:00:00Z')
@@ -47,6 +40,22 @@ if (!areDatesValid) {
 if (!hasTokenIfNeeded) {
   console.error('If you specify either --simid or --iccid, then you also need to specify --token')
   console.error('See https://github.com/onomondo/onomondo-traffic-fetcher for more information')
+  process.exit(1)
+}
+
+if (isUsingS3 && !hasAllS3Params) {
+  console.error('If you use S3, you need to specify all these parameters: --s3-bucket, --s3-region, --aws-access-key-id, --aws-secret-access-key')
+  console.error('See https://github.com/onomondo/onomondo-traffic-fetcher for more information')
+  process.exit(1)
+}
+
+if (!hasAllRequiredParams) {
+  console.error([
+    `Onomondo Traffic Fetcher ${pkgJson.version}`,
+    'Fetch your organization\'s traffic based on ip, iccid, or simid',
+    '',
+    'Some parameters are missing. See documentation on https://github.com/onomondo/onomondo-traffic-fetcher'
+  ].join('\n'))
   process.exit(1)
 }
 
@@ -65,62 +74,39 @@ async function run () {
   fs.mkdirSync(path.join('tmp', 'traffic'), { recursive: true })
 
   // Convert ICCID/SimID into ip addresses
-  for (const [index, simId] of Object.entries(simIds)) {
-    log(`Getting ip addresses from simid's [${index + 1}/${simIds.length}]`)
-    const ip = await getIpFromSimId({ simId, token })
-    ips.push(ip)
-  }
   if (simIds.length > 0) {
-    log('')
+    await convertSimIdsIntoIps()
     console.log('Done getting ip addresses from simid\'s')
   }
-
-  for (const [index, iccId] of Object.entries(iccIds)) {
-    log(`Getting ip addresses from iccid's [${index + 1}/${iccIds.length}]`)
-    const ip = await getIpFromSimId({ iccId, token })
-    ips.push(ip)
-  }
   if (iccIds.length > 0) {
-    log('')
+    await convertIccIdsIntoIps()
     console.log('Done getting ip addresses from iccid\'s')
   }
 
-  // Get list of pcap files
-  log('Getting list of pcap files')
-  const objects = await getObjectsToFetch({ from, to })
-  log('')
-  console.log('Done getting list of pcap files')
+  let pcapFilesLocally
 
-  // Download all pcap files
-  const totalObjects = objects.length
-  const totalSize = objects.reduce((totalSize, { Size }) => totalSize + Size, 0)
-  let downloadedSize = 0
-  const pcapFilenames = []
+  // Download pcap files from S3
+  if (isUsingS3) {
+    // Get list of pcap files
+    const pcapFilesOnS3 = await getListOfAllPcapFilesOnS3()
+    console.log('Done getting list of pcap files from S3')
 
-  for (const [index, obj] of Object.entries(objects)) {
-    downloadedSize += obj.Size
-    log(`Downloading pcap files. ${Number(index) + 1}/${totalObjects} (${filesize(downloadedSize)}/${filesize(totalSize)})`)
-    const filename = await downloadObject(obj.Key)
-    pcapFilenames.push(filename)
+    // Download all pcap files
+    pcapFilesLocally = await downloadAllPcapFilesOnS3(pcapFilesOnS3)
+    console.log('Done downloading pcap files from S3')
   }
-  log('')
-  console.log('Done downloading pcap files')
 
   // Merge files
-  log('Merging all pcap files, using mergecap')
-  const mergeFilename = await mergePcapFiles(pcapFilenames)
-  log('')
+  const mergeFilename = await mergePcapFiles(pcapFilesLocally)
   console.log('Done merging pcap files')
 
   // Filter relevant packets
   const shouldFilter = ips.length > 0
-  if (shouldFilter) {
-    log('Filtering relevant packets, using tshark')
-    await filterFile(mergeFilename, ips)
-    log('')
-    console.log('Done filtering relevant packets')
-  } else {
+  if (!shouldFilter) {
     fs.renameSync(mergeFilename, 'traffic.pcap')
+  } else {
+    await filterWithTshark(mergeFilename, ips)
+    console.log('Done filtering relevant packets')
   }
 
   // Clean up
@@ -130,7 +116,24 @@ async function run () {
   console.log('\nComplete. File is stored at traffic.pcap')
 }
 
-async function downloadObject (s3Key) {
+async function downloadAllPcapFilesOnS3 (pcapFilesOnS3) {
+  const totalFiles = pcapFilesOnS3.length
+  const totalSize = pcapFilesOnS3.reduce((totalSize, { Size }) => totalSize + Size, 0)
+  let downloadedSize = 0
+  const pcapFilenames = []
+
+  for (const [index, file] of Object.entries(pcapFilesOnS3)) {
+    downloadedSize += file.Size
+    log(`Downloading pcap files from S3. [${Number(index) + 1}/${totalFiles} (${filesize(downloadedSize)}/${filesize(totalSize)})] (s3://${s3Bucket}/${file.Key})`)
+    const filename = await downloadPcapFileOnS3(file.Key)
+    pcapFilenames.push(filename)
+  }
+  log('')
+
+  return pcapFilenames
+}
+
+async function downloadPcapFileOnS3 (s3Key) {
   return new Promise((resolve, reject) => {
     const pcapFilename = path.join('tmp', 'traffic', s3Key.replace(/\//g, '-'))
     const stream = fs.createWriteStream(pcapFilename)
@@ -144,20 +147,43 @@ async function downloadObject (s3Key) {
   })
 }
 
+async function convertSimIdsIntoIps () {
+  for (const [index, simId] of Object.entries(simIds)) {
+    log(`Getting ip addresses from simid's [${Number(index) + 1}/${simIds.length}] (${simId})`)
+    const ip = await getIpFromSimOrIccId({ id: simId, token })
+    ips.push(ip)
+  }
+  log('')
+}
+
+async function convertIccIdsIntoIps () {
+  for (const [index, iccId] of Object.entries(iccIds)) {
+    log(`Getting ip addresses from iccid's [${Number(index) + 1}/${iccIds.length}] (${iccId})`)
+    const ip = await getIpFromSimOrIccId({ id: iccId, token })
+    ips.push(ip)
+  }
+  log('')
+}
+
 async function mergePcapFiles (pcapFilenames) {
   return new Promise((resolve, reject) => {
+    log('Merging all pcap files, using mergecap')
     const mergeFilename = path.join('tmp', 'merged.pcap')
     const mergecap = spawn('mergecap', [
       ...pcapFilenames,
       '-w', mergeFilename
     ])
     mergecap.on('error', reject)
-    mergecap.on('close', () => resolve(mergeFilename))
+    mergecap.on('close', () => {
+      log('')
+      resolve(mergeFilename)
+    })
   })
 }
 
-async function filterFile (mergeFilename, ips) {
+async function filterWithTshark (mergeFilename, ips) {
   return new Promise((resolve, reject) => {
+    log('Filtering relevant packets, using tshark')
     const filteredFilename = 'traffic.pcap'
     const args = [
       '-r', mergeFilename,
@@ -166,11 +192,21 @@ async function filterFile (mergeFilename, ips) {
     ]
     const tshark = spawn('tshark', args)
     tshark.on('error', reject)
-    tshark.on('close', () => resolve(filteredFilename))
+    tshark.on('close', () => {
+      log('')
+      resolve(filteredFilename)
+    })
   })
 }
 
-async function getObjectsToFetch ({ from, to }) {
+async function getListOfAllPcapFilesOnS3 () {
+  log('Getting list of pcap files')
+  const pcapFilesOnS3 = await getListOfAllPcapFilesRecursive({ from, to })
+  log('')
+  return pcapFilesOnS3
+}
+
+async function getListOfAllPcapFilesRecursive ({ from, to }) {
   if (from > to) return []
 
   const keyTimestamp = format(from, 'yyyy/MM/dd')
@@ -185,25 +221,14 @@ async function getObjectsToFetch ({ from, to }) {
       return isInRage
     })
   const nextFrom = startOfDay(addDays(from, 1))
-  const nextItems = await getObjectsToFetch({ from: nextFrom, to })
+  const nextItems = await getListOfAllPcapFilesRecursive({ from: nextFrom, to })
 
   return itemsFiltered.concat(nextItems)
 }
 
-async function getIpFromSimId ({ simId, token }) {
-  const { data: { ipv4: ip } } = await axios.get(`${apiUrl}/sims/${simId}`, {
-    headers: {
-      authorization: token
-    }
-  })
-  return ip
-}
-
-async function getIpFromIccId ({ iccId, token }) {
-  const { data: { ipv4: ip } } = await axios.get(`${apiUrl}/sims/${iccId}`, {
-    headers: {
-      authorization: token
-    }
-  })
+async function getIpFromSimOrIccId ({ id, token }) {
+  const headers = { authorization: token }
+  if (organizationId) headers.organization_id = organizationId
+  const { data: { ipv4: ip } } = await axios.get(`${apiUrl}/sims/${id}`, { headers })
   return ip
 }
