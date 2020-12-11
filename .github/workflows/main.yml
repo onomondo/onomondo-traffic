@@ -16,11 +16,6 @@ jobs:
       with:
         node-version: '14.8.0'
 
-    - uses: onomondo/github-auth-javascript-action@v1.0.3
-      with:
-        github-auth-token: ${{ secrets.GH_AUTH_TOKEN }}
-
-    # https://github.com/actions/cache/blob/master/examples.md#node---yarn
     - name: Get yarn cache
       id: yarn-cache
       run: echo "::set-output name=dir::$(yarn cache dir)"
