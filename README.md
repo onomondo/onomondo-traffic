@@ -47,7 +47,7 @@ With `conf.json` containing:
 
 ### Azure Blob Storage
 
-Download traffic between 5 and 7:30 on Dec 20th, from s3, filtering out traffic from several sim id's, and one ip:
+Download traffic between 5 and 7:30 on Dec 20th, from s3, filtering out traffic from several sim id's and one iccid:
 
 This is run from the command line:
 
@@ -65,6 +65,7 @@ With `conf-sim-group.json` containing:
   "token": "abc123def456ghi",
   "blob-storage-connection-string": "DefaultEndpointsProtocol=https;AccountName=foobarbaz;AccountKey=a1b2c3;EndpointSuffix=core.windows.net",
   "blob-storage-container-name": "my-container-name",
+  "iccid": "8991101200003204514",
   "simid": [
     "000123456",
     "001234567",
