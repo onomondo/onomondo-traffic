@@ -14,20 +14,22 @@ const { BlobServiceClient } = require('@azure/storage-blob')
 
 process.env.TZ = 'UTC' // Only work in UTC (I quit if I have to work more with date/time...)
 const argv = minimist(process.argv.slice(2), { string: 'simid' })
-const from = new Date(argv.from)
-const to = new Date(argv.to)
-const iccIds = typeof argv.iccid === 'string' ? [argv.iccid] : (argv.iccid || [])
-const simIds = typeof argv.simid === 'string' ? [argv.simid] : (argv.simid || [])
-const ips = typeof argv.ip === 'string' ? [argv.ip] : (argv.ip || [])
-const token = argv.token
-const apiUrl = argv.api || 'https://api.onomondo.com'
-const organizationId = argv.organizationid
-const s3Bucket = argv['s3-bucket']
-const s3Region = argv['s3-region']
-const awsAccessKeyId = argv['aws-access-key-id']
-const awsSecretAccessKey = argv['aws-secret-access-key']
-const blobStorageConnectionString = argv['blob-storage-connection-string']
-const blobStorageContainerName = argv['blob-storage-container-name']
+const confFilename = argv.conf || 'conf.json'
+const conf = fs.existsSync(confFilename) ? JSON.parse(fs.readFileSync(confFilename)) : {}
+const from = new Date(getParam('from'))
+const to = new Date(getParam('to'))
+const iccIds = typeof getParam('iccid') === 'string' ? [getParam('iccid')] : (getParam('iccid') || [])
+const simIds = typeof getParam('simid') === 'string' ? [getParam('simid')] : (getParam('simid') || [])
+const ips = typeof getParam('ip') === 'string' ? [getParam('ip')] : (getParam('ip') || [])
+const token = getParam('token')
+const apiUrl = getParam('api') || 'https://api.onomondo.com'
+const organizationId = getParam('organizationid')
+const s3Bucket = getParam('s3-bucket')
+const s3Region = getParam('s3-region')
+const awsAccessKeyId = getParam('aws-access-key-id')
+const awsSecretAccessKey = getParam('aws-secret-access-key')
+const blobStorageConnectionString = getParam('blob-storage-connection-string')
+const blobStorageContainerName = getParam('blob-storage-container-name')
 const hasTokenIfNeeded = (iccIds.length || simIds.length) ? !!token : true
 const areDatesValid = isValid(from) && isValid(to)
 const isUsingBlobStorage = blobStorageConnectionString || blobStorageContainerName
@@ -35,6 +37,28 @@ const hasAllBlobStorageParams = blobStorageConnectionString && blobStorageContai
 const isUsingS3 = s3Bucket || s3Region || awsAccessKeyId || awsSecretAccessKey
 const hasAllS3Params = s3Bucket && s3Region && awsAccessKeyId && awsSecretAccessKey
 const hasAllRequiredParams = from && to && (isUsingBlobStorage || isUsingS3)
+
+function getParam (param) {
+  const isArray = Array.isArray(argv[param]) || Array.isArray(conf[param])
+  if (!isArray) return conf[param] || argv[param]
+
+  const res = []
+    .concat(argv[param])
+    .concat(conf[param])
+    .filter(val => !!val) // remove undefined
+
+  return [...new Set(res)] // remove duplicates
+}
+
+if (!hasAllRequiredParams) {
+  console.error([
+    `Onomondo Traffic Fetcher ${pkgJson.version}`,
+    'Fetch your organization\'s traffic based on ip, iccid, or simid',
+    '',
+    'Some parameters are missing. See documentation on https://github.com/onomondo/onomondo-traffic-fetcher'
+  ].join('\n'))
+  process.exit(1)
+}
 
 if (!areDatesValid) {
   console.error('The dates are not valid. Needs to be in a format like --from=2020-12-20T18:00:00Z')
@@ -63,16 +87,6 @@ if (isUsingBlobStorage && !hasAllBlobStorageParams) {
 if (!isUsingBlobStorage && !isUsingS3) {
   console.error('You need to either specify an AWS S3 or Azure Blob Storage configuration')
   console.error('See https://github.com/onomondo/onomondo-traffic-fetcher for more information')
-  process.exit(1)
-}
-
-if (!hasAllRequiredParams) {
-  console.error([
-    `Onomondo Traffic Fetcher ${pkgJson.version}`,
-    'Fetch your organization\'s traffic based on ip, iccid, or simid',
-    '',
-    'Some parameters are missing. See documentation on https://github.com/onomondo/onomondo-traffic-fetcher'
-  ].join('\n'))
   process.exit(1)
 }
 
