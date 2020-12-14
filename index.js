@@ -22,8 +22,8 @@ const iccIds = typeof getParam('iccid') === 'string' ? [getParam('iccid')] : (ge
 const simIds = typeof getParam('simid') === 'string' ? [getParam('simid')] : (getParam('simid') || [])
 const ips = typeof getParam('ip') === 'string' ? [getParam('ip')] : (getParam('ip') || [])
 const token = getParam('token')
-const apiUrl = getParam('api') || 'https://api.onomondo.com'
-const organizationId = getParam('organizationid')
+const apiUrl = getParam('api-url') || 'https://api.onomondo.com'
+const apiHeaders = getParam('api-headers') || {}
 const s3Bucket = getParam('s3-bucket')
 const s3Region = getParam('s3-region')
 const awsAccessKeyId = getParam('aws-access-key-id')
@@ -324,8 +324,8 @@ async function getListOfAllPcapFilesOnS3Recursive ({ from, to }) {
 }
 
 async function getIpFromSimOrIccId ({ id, token }) {
-  const headers = { authorization: token }
-  if (organizationId) headers.organization_id = organizationId
+  const headers = apiHeaders || {}
+  headers.authorization = token
   const { data: { ipv4: ip } } = await axios.get(`${apiUrl}/sims/${id}`, { headers })
   return ip
 }
