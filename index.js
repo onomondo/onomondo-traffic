@@ -52,41 +52,41 @@ function getParam (param) {
 
 if (!hasAllRequiredParams) {
   console.error([
-    `Onomondo Traffic Fetcher ${pkgJson.version}`,
+    `Onomondo Traffic ${pkgJson.version}`,
     'Fetch your organization\'s traffic based on ip, iccid, or simid',
     '',
-    'Some parameters are missing. See documentation on https://github.com/onomondo/onomondo-traffic-fetcher'
+    'Some parameters are missing. See documentation on https://github.com/onomondo/onomondo-traffic'
   ].join('\n'))
   process.exit(1)
 }
 
 if (!areDatesValid) {
   console.error('The dates are not valid. Needs to be in a format like --from=2020-12-20T18:00:00Z')
-  console.error('See https://github.com/onomondo/onomondo-traffic-fetcher for more information')
+  console.error('See https://github.com/onomondo/onomondo-traffic for more information')
   process.exit(1)
 }
 
 if (!hasTokenIfNeeded) {
   console.error('If you specify either --simid or --iccid, then you also need to specify --token')
-  console.error('See https://github.com/onomondo/onomondo-traffic-fetcher for more information')
+  console.error('See https://github.com/onomondo/onomondo-traffic for more information')
   process.exit(1)
 }
 
 if (isUsingS3 && !hasAllS3Params) {
   console.error('If you use AWS S3, you need to specify all these parameters: --s3-bucket, --s3-region, --aws-access-key-id, --aws-secret-access-key')
-  console.error('See https://github.com/onomondo/onomondo-traffic-fetcher for more information')
+  console.error('See https://github.com/onomondo/onomondo-traffic for more information')
   process.exit(1)
 }
 
 if (isUsingBlobStorage && !hasAllBlobStorageParams) {
   console.error('If you use Azure Blob Storage, you need to specify all these parameters: --blob-storage-connection-string, --blob-storage-container-name')
-  console.error('See https://github.com/onomondo/onomondo-traffic-fetcher for more information')
+  console.error('See https://github.com/onomondo/onomondo-traffic for more information')
   process.exit(1)
 }
 
 if (!isUsingBlobStorage && !isUsingS3) {
   console.error('You need to either specify an AWS S3 or Azure Blob Storage configuration')
-  console.error('See https://github.com/onomondo/onomondo-traffic-fetcher for more information')
+  console.error('See https://github.com/onomondo/onomondo-traffic for more information')
   process.exit(1)
 }
 

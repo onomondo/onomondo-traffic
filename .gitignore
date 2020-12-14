@@ -66,3 +66,4 @@ local.json
 package-lock.json
 tmp
 traffic.pcap
+conf-*.json

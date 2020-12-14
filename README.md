@@ -1,4 +1,4 @@
-# onomondo-traffic-fetcher
+# onomondo-traffic
 
 Fetch your organization's traffic based on ip, iccid, or simid.
 
@@ -8,11 +8,11 @@ This is a tool for organizations that are using Onomondo Fleet Storage.
 
 You need to have `node.js` and `wireshark` installed on your system.
 
-Install this way: `$ npm i -g onomondo-traffic-fetcher`
+Install this way: `$ npm i -g onomondo-traffic`
 
 ## How to use
 
-`onomondo-traffic-fetcher` uses several parameters. All of these can either be passed through command-line arguments, or you can put them in a file called `conf.json`, which is read from the folder you run the program from.
+`onomondo-traffic` uses several parameters. All of these can either be passed through command-line arguments, or you can put them in a file called `conf.json`, which is read from the folder you run the program from.
 
 Is is recommended to put access keys, and token into a `conf.json` and pass the other parameters to the program, but it can all be combined however you choose.
 
@@ -27,7 +27,7 @@ Download traffic between 5 and 7:30 on Dec 20th, from s3, filtering out traffic 
 This is run from the command line:
 
 ```
-$ onomondo-traffic-fetcher \
+$ onomondo-traffic \
   --from=2020-12-20T05:00:00Z \
   --to=2020-12-20T07:30:00Z \
   --iccid=8991101200003204514
@@ -52,7 +52,7 @@ Download traffic between 5 and 7:30 on Dec 20th, from s3, filtering out traffic 
 This is run from the command line:
 
 ```
-$ onomondo-traffic-fetcher \
+$ onomondo-traffic \
   --from=2020-12-20T05:00:00Z \
   --to=2020-12-20T07:30:00Z \
   --conf=conf-sim-group.json
@@ -104,7 +104,7 @@ Filter traffic based on this simid. **Requires you to specify --token**
 
 ### --token=abc123def456ghi789 (optional)
 
-This is the token for Onomondo api. You only need to specify this if you use `--iccid` or `--simid`. This is because `onomondo-traffic-fetcher` needs to convert the iccid/simid into an ip address.
+This is the token for Onomondo api. You only need to specify this if you use `--iccid` or `--simid`. This is because `onomondo-traffic` needs to convert the iccid/simid into an ip address.
 
 ### --conf
 
