@@ -123,7 +123,8 @@ If you are using AWS S3 then these paramters are required.
 
 ### Azure Blob Storage
 
-If you are uzing Azure Blob Storage then these parameters are required.
+If you are uzing Azure Blob Storage then these parameters are required. Note that only one of either `--blob-storage-sas-uri` or `--blob-storage-connection-string` is required.
 
+#### --blob-storage-sas-uri
 #### --blob-storage-connection-string
 #### --blob-storage-container-name

@@ -28,12 +28,13 @@ const s3Bucket = getParam('s3-bucket')
 const s3Region = getParam('s3-region')
 const awsAccessKeyId = getParam('aws-access-key-id')
 const awsSecretAccessKey = getParam('aws-secret-access-key')
+const blobStorageSasUri = getParam('blob-storage-sas-uri')
 const blobStorageConnectionString = getParam('blob-storage-connection-string')
 const blobStorageContainerName = getParam('blob-storage-container-name')
 const hasTokenIfNeeded = (iccIds.length || simIds.length) ? !!token : true
 const areDatesValid = isValid(from) && isValid(to)
-const isUsingBlobStorage = blobStorageConnectionString || blobStorageContainerName
-const hasAllBlobStorageParams = blobStorageConnectionString && blobStorageContainerName
+const isUsingBlobStorage = blobStorageSasUri || blobStorageConnectionString || blobStorageContainerName
+const hasAllBlobStorageParams = (blobStorageSasUri || blobStorageConnectionString) && blobStorageContainerName
 const isUsingS3 = s3Bucket || s3Region || awsAccessKeyId || awsSecretAccessKey
 const hasAllS3Params = s3Bucket && s3Region && awsAccessKeyId && awsSecretAccessKey
 const hasAllRequiredParams = from && to && (isUsingBlobStorage || isUsingS3)
@@ -79,7 +80,7 @@ if (isUsingS3 && !hasAllS3Params) {
 }
 
 if (isUsingBlobStorage && !hasAllBlobStorageParams) {
-  console.error('If you use Azure Blob Storage, you need to specify all these parameters: --blob-storage-connection-string, --blob-storage-container-name')
+  console.error('If you use Azure Blob Storage, you need to specify one of these parameters: --blob-storage-sas-uri, --blob-storage-connection-string. And then this --blob-storage-container-name')
   console.error('See https://github.com/onomondo/onomondo-traffic for more information')
   process.exit(1)
 }
@@ -176,7 +177,9 @@ async function downloadAllPcapFilesOnBlobStorage (pcapFilesOnBlobStorage) {
 
 async function downloadPcapFileOnBlobStorage (blobStorageFilename) {
   const pcapFilename = path.join('tmp', 'traffic', blobStorageFilename.replace(/\//g, '-'))
-  const blobServiceClient = BlobServiceClient.fromConnectionString(blobStorageConnectionString)
+  const blobServiceClient = blobStorageConnectionString
+    ? BlobServiceClient.fromConnectionString(blobStorageConnectionString)
+    : new BlobServiceClient(blobStorageSasUri)
   const containerClient = blobServiceClient.getContainerClient(blobStorageContainerName)
   const blobClient = containerClient.getBlobClient(blobStorageFilename)
   await blobClient.downloadToFile(pcapFilename)
@@ -278,7 +281,9 @@ async function getListOfAllPcapFilesOnBlobStorageRecursive ({ from, to }) {
 
   const keyTimestamp = format(from, 'yyyy/MM/dd')
   const allFilesFromDay = []
-  const blobServiceClient = BlobServiceClient.fromConnectionString(blobStorageConnectionString)
+  const blobServiceClient = blobStorageConnectionString
+    ? BlobServiceClient.fromConnectionString(blobStorageConnectionString)
+    : new BlobServiceClient(blobStorageSasUri)
   const client = blobServiceClient.getContainerClient(blobStorageContainerName)
   for await (const file of client.listBlobsFlat({ prefix: keyTimestamp })) {
     allFilesFromDay.push(file)
