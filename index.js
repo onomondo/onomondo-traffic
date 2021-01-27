@@ -288,13 +288,7 @@ async function getListOfAllPcapFilesOnBlobStorageRecursive ({ from, to }) {
   for await (const file of client.listBlobsFlat({ prefix: keyTimestamp })) {
     allFilesFromDay.push(file)
   }
-
-  const filesInRange = allFilesFromDay
-    .filter(({ name }) => {
-      const date = parse(name.split('.pcap')[0], 'yyyy/MM/dd/HH/mm', new Date())
-      const isInRage = from < date && date < to
-      return isInRage
-    })
+  const filesInRange = allFilesFromDay.filter(({ name: filename }) => isInRange({ filename, from, to }))
   const nextFrom = startOfDay(addDays(from, 1))
   const nextFiles = await getListOfAllPcapFilesOnBlobStorageRecursive({ from: nextFrom, to })
 
@@ -316,16 +310,18 @@ async function getListOfAllPcapFilesOnS3Recursive ({ from, to }) {
     Bucket: s3Bucket,
     Prefix: keyTimestamp
   }).promise()
-  const filesInRange = allFilesFromDay
-    .filter(({ Key }) => {
-      const date = parse(Key.split('.pcap')[0], 'yyyy/MM/dd/HH/mm', new Date())
-      const isInRage = from < date && date < to
-      return isInRage
-    })
+
+  const filesInRange = allFilesFromDay.filter(({ Key: filename }) => isInRange({ filename, from, to }))
   const nextFrom = startOfDay(addDays(from, 1))
   const nextFiles = await getListOfAllPcapFilesOnS3Recursive({ from: nextFrom, to })
 
   return filesInRange.concat(nextFiles)
+}
+
+function isInRange ({ filename, from, to }) {
+  const date = parse(filename.split('.pcap')[0].split('-')[0], 'yyyy/MM/dd/HH/mm', new Date())
+  const isInRage = from < date && date < to
+  return isInRage
 }
 
 async function getIpFromSimOrIccId ({ id, token }) {
