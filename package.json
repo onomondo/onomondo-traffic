@@ -27,6 +27,7 @@
     "date-fns": "^2.16.1",
     "filesize": "^6.1.0",
     "minimist": "^1.2.5",
+    "package-json": "^6.5.0",
     "single-line-log": "^1.1.2"
   }
 }

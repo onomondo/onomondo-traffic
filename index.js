@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+process.env.TZ = 'UTC' // Only work in UTC (I quit if I have to work more with date/time...)
+
 const AWS = require('aws-sdk')
 const fs = require('fs')
 const { parse, format, addDays, startOfDay, isValid } = require('date-fns')
@@ -10,12 +12,20 @@ const { spawn } = require('child_process')
 const minimist = require('minimist')
 const axios = require('axios')
 const pkgJson = require('./package.json')
+const getPackageJson = require('package-json')
 const { BlobServiceClient } = require('@azure/storage-blob')
 
-process.env.TZ = 'UTC' // Only work in UTC (I quit if I have to work more with date/time...)
+const ALLOWED_PARAMS = [
+  'from', 'to', 'iccid', 'simid', 'ip',
+  's3-bucket', 's3-region', 'aws-access-key-id', 'aws-secret-access-key',
+  'blob-storage-sas-uri', 'blob-storage-connection-string', 'blob-storage-container-name',
+  'conf', 'token', 'api-url', 'api-headers'
+]
+
 const argv = minimist(process.argv.slice(2), { string: 'simid' })
 const confFilename = argv.conf || 'conf.json'
 const conf = fs.existsSync(confFilename) ? JSON.parse(fs.readFileSync(confFilename)) : {}
+const allParams = Object.keys({ ...argv, ...conf })
 const from = new Date(getParam('from'))
 const to = new Date(getParam('to'))
 const iccIds = typeof getParam('iccid') === 'string' ? [getParam('iccid')] : (getParam('iccid') || [])
@@ -38,6 +48,7 @@ const hasAllBlobStorageParams = (blobStorageSasUri || blobStorageConnectionStrin
 const isUsingS3 = s3Bucket || s3Region || awsAccessKeyId || awsSecretAccessKey
 const hasAllS3Params = s3Bucket && s3Region && awsAccessKeyId && awsSecretAccessKey
 const hasAllRequiredParams = from && to && (isUsingBlobStorage || isUsingS3)
+const isRangeValid = from < to
 
 function getParam (param) {
   const isArray = Array.isArray(argv[param]) || Array.isArray(conf[param])
@@ -51,45 +62,25 @@ function getParam (param) {
   return [...new Set(res)] // remove duplicates
 }
 
-if (!hasAllRequiredParams) {
-  console.error([
-    `Onomondo Traffic ${pkgJson.version}`,
-    'Fetch your organization\'s traffic based on ip, iccid, or simid',
-    '',
-    'Some parameters are missing. See documentation on https://github.com/onomondo/onomondo-traffic'
+console.error(`Onomondo Traffic ${pkgJson.version}`)
+console.error('')
+
+allParams.forEach(key => {
+  if (ALLOWED_PARAMS.includes(key)) return
+  if (key[0] === '_') return // keys that start with _ are not checked
+  exit([
+    `You included a parameter that is not allowed: ${key}`,
+    `Allowed parameters are: ${ALLOWED_PARAMS.join(', ')}`
   ].join('\n'))
-  process.exit(1)
-}
+})
 
-if (!areDatesValid) {
-  console.error('The dates are not valid. Needs to be in a format like --from=2020-12-20T18:00:00Z')
-  console.error('See https://github.com/onomondo/onomondo-traffic for more information')
-  process.exit(1)
-}
-
-if (!hasTokenIfNeeded) {
-  console.error('If you specify either --simid or --iccid, then you also need to specify --token')
-  console.error('See https://github.com/onomondo/onomondo-traffic for more information')
-  process.exit(1)
-}
-
-if (isUsingS3 && !hasAllS3Params) {
-  console.error('If you use AWS S3, you need to specify all these parameters: --s3-bucket, --s3-region, --aws-access-key-id, --aws-secret-access-key')
-  console.error('See https://github.com/onomondo/onomondo-traffic for more information')
-  process.exit(1)
-}
-
-if (isUsingBlobStorage && !hasAllBlobStorageParams) {
-  console.error('If you use Azure Blob Storage, you need to specify one of these parameters: --blob-storage-sas-uri, --blob-storage-connection-string. And then this --blob-storage-container-name')
-  console.error('See https://github.com/onomondo/onomondo-traffic for more information')
-  process.exit(1)
-}
-
-if (!isUsingBlobStorage && !isUsingS3) {
-  console.error('You need to either specify an AWS S3 or Azure Blob Storage configuration')
-  console.error('See https://github.com/onomondo/onomondo-traffic for more information')
-  process.exit(1)
-}
+if (!hasAllRequiredParams) exit('Some parameters are missing.')
+if (!areDatesValid) exit('The dates are not valid. Needs to be in a format like --from=2020-12-20T18:00:00Z')
+if (!isRangeValid) exit('"from" is after "to". Please correct this.')
+if (!hasTokenIfNeeded) exit('If you specify either --simid or --iccid, then you also need to specify --token')
+if (isUsingS3 && !hasAllS3Params) exit('If you use AWS S3, you need to specify all these parameters: --s3-bucket, --s3-region, --aws-access-key-id, --aws-secret-access-key')
+if (isUsingBlobStorage && !hasAllBlobStorageParams) exit('If you use Azure Blob Storage, you need to specify one of these parameters: --blob-storage-sas-uri, --blob-storage-connection-string. And then this --blob-storage-container-name')
+if (!isUsingBlobStorage && !isUsingS3) exit('You need to either specify an AWS S3 or Azure Blob Storage configuration')
 
 AWS.config.update({
   region: s3Region,
@@ -101,6 +92,20 @@ const s3 = new AWS.S3({ apiVersion: '2006-03-01' })
 run()
 
 async function run () {
+  // Check if mergecap exists on local machine
+  const hasMergecap = await mergeCapExists()
+  if (!hasMergecap) {
+    exit([
+      '"mergecap" is required to run Onomondo Traffic.',
+      'Maybe Wireshark is not installed or "mergecap" is not in PATH?'
+    ])
+  }
+
+  // Check local version vs public version
+  const publicVersion = await getPublicVersion()
+  const isUsingCorrectVersion = pkgJson.version === publicVersion
+  if (!isUsingCorrectVersion) console.error(`You are currently using version ${pkgJson.version} and the latest version is ${publicVersion}`)
+
   // Setup (remove ./tmp, create ./tmp)
   fs.rmdirSync('tmp', { recursive: true })
   fs.mkdirSync(path.join('tmp', 'traffic'), { recursive: true })
@@ -269,6 +274,14 @@ async function filterWithTshark (mergeFilename, ips) {
   })
 }
 
+async function mergeCapExists () {
+  return new Promise(resolve => {
+    const mergecap = spawn('mergecap')
+    mergecap.on('error', () => resolve(false))
+    mergecap.on('close', () => resolve(true))
+  })
+}
+
 async function getListOfAllPcapFilesOnBlobStorage () {
   log('Getting list of pcap files from Azure Blob Storage')
   const pcapFilesOnBlobStorage = await getListOfAllPcapFilesOnBlobStorageRecursive({ from, to })
@@ -318,15 +331,27 @@ async function getListOfAllPcapFilesOnS3Recursive ({ from, to }) {
   return filesInRange.concat(nextFiles)
 }
 
+async function getIpFromSimOrIccId ({ id, token }) {
+  const headers = apiHeaders || {}
+  headers.authorization = token
+  const { data: { ipv4: ip } } = await axios.get(`${apiUrl}/sims/${id}`, { headers })
+  return ip
+}
+
+async function getPublicVersion () {
+  const pkgJson = await getPackageJson('onomondo-traffic')
+  return pkgJson.version
+}
+
 function isInRange ({ filename, from, to }) {
   const date = parse(filename.split('.pcap')[0].split('-')[0], 'yyyy/MM/dd/HH/mm', new Date())
   const isInRage = from < date && date < to
   return isInRage
 }
 
-async function getIpFromSimOrIccId ({ id, token }) {
-  const headers = apiHeaders || {}
-  headers.authorization = token
-  const { data: { ipv4: ip } } = await axios.get(`${apiUrl}/sims/${id}`, { headers })
-  return ip
+function exit (err) {
+  console.error(err)
+  console.error()
+  console.error('See https://github.com/onomondo/onomondo-traffic for more information')
+  process.exit(1)
 }
