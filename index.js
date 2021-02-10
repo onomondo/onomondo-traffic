@@ -143,18 +143,18 @@ async function run () {
     console.log('Done downloading pcap files from Azure Blob Storage')
   }
 
-  // Merge files
-  const mergeFilename = await mergePcapFiles(pcapFilesLocally)
-  console.log('Done merging pcap files')
-
   // Filter relevant packets
   const shouldFilter = ips.length > 0
-  if (!shouldFilter) {
-    fs.renameSync(mergeFilename, 'traffic.pcap')
-  } else {
-    await filterWithTshark(mergeFilename, ips)
-    console.log('Done filtering relevant packets')
-  }
+  const filteredPcapFilesLocally = shouldFilter
+    ? await filterPcapFiles(pcapFilesLocally, ips)
+    : pcapFilesLocally
+
+  // Merge files
+  const mergeFilename = await mergePcapFiles(filteredPcapFilesLocally)
+  console.log('Done merging pcap files')
+
+  // Rename file
+  fs.renameSync(mergeFilename, 'traffic.pcap')
 
   // Clean up
   fs.rmdirSync('tmp', { recursive: true })
@@ -256,12 +256,23 @@ async function mergePcapFiles (pcapFilenames) {
   })
 }
 
-async function filterWithTshark (mergeFilename, ips) {
+async function filterPcapFiles (filenames, ips) {
+  const newFilesnames = []
+  for (const [index, filename] of filenames.entries()) {
+    log(`Filtering relevant packets, using tshark [${Number(index) + 1}/${filenames.length}]`)
+    const newFilename = await filterWithTshark(filename, ips)
+    newFilesnames.push(newFilename)
+  }
+
+  return newFilesnames
+}
+
+async function filterWithTshark (filename, ips) {
   return new Promise((resolve, reject) => {
-    log('Filtering relevant packets, using tshark')
-    const filteredFilename = 'traffic.pcap'
+    const { dir, base } = path.parse(filename)
+    const filteredFilename = path.join(dir, `filtered-${base}`)
     const args = [
-      '-r', mergeFilename,
+      '-r', filename,
       '-w', filteredFilename,
       '-Y', `${ips.map(ip => `ip.addr == ${ip}`).join(' or ')}`
     ]
