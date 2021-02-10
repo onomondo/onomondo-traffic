@@ -22,7 +22,7 @@ const ALLOWED_PARAMS = [
   'conf', 'token', 'api-url', 'api-headers'
 ]
 
-const argv = minimist(process.argv.slice(2), { string: 'simid' })
+const argv = minimist(process.argv.slice(2), { string: ['simid', 'iccid'] })
 const confFilename = argv.conf || 'conf.json'
 const conf = fs.existsSync(confFilename) ? JSON.parse(fs.readFileSync(confFilename)) : {}
 const allParams = Object.keys({ ...argv, ...conf })
