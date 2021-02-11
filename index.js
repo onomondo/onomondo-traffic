@@ -63,7 +63,7 @@ function getParam (param) {
   return [...new Set(res)] // remove duplicates
 }
 
-console.error(`Onomondo Traffic ${pkgJson.version}`)
+console.error(`Onomondo Traffic ${pkgJson.version} (node.js ${process.version})`)
 console.error('')
 
 allParams.forEach(key => {
@@ -99,13 +99,13 @@ async function run () {
     exit([
       '"mergecap" is required to run Onomondo Traffic.',
       'Maybe Wireshark is not installed or "mergecap" is not in PATH?'
-    ])
+    ].join('\n'))
   }
 
   // Check local version vs public version
   const publicVersion = await getPublicVersion()
   const isUsingCorrectVersion = pkgJson.version === publicVersion
-  if (!isUsingCorrectVersion) console.error(`You are currently using version ${pkgJson.version} and the latest version is ${publicVersion}`)
+  if (!isUsingCorrectVersion) console.error(`You are currently using version ${pkgJson.version} and the latest version is ${publicVersion}\n`)
 
   // Convert ICCID/SimID into ip addresses
   if (simIds.length > 0) {
@@ -287,7 +287,9 @@ async function filterWithTshark (filename, ips) {
 
 async function mergeCapExists () {
   return new Promise(resolve => {
-    const mergecap = spawn('mergecap')
+    const mergecap = spawn('mergecap', [], {
+      cwd: tmpFolder
+    })
     mergecap.on('error', () => resolve(false))
     mergecap.on('close', () => resolve(true))
   })
