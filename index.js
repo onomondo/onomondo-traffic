@@ -49,6 +49,7 @@ const isUsingS3 = s3Bucket || s3Region || awsAccessKeyId || awsSecretAccessKey
 const hasAllS3Params = s3Bucket && s3Region && awsAccessKeyId && awsSecretAccessKey
 const hasAllRequiredParams = from && to && (isUsingBlobStorage || isUsingS3)
 const isRangeValid = from < to
+const tmpFolder = fs.mkdtempSync('tmp-')
 
 function getParam (param) {
   const isArray = Array.isArray(argv[param]) || Array.isArray(conf[param])
@@ -106,18 +107,14 @@ async function run () {
   const isUsingCorrectVersion = pkgJson.version === publicVersion
   if (!isUsingCorrectVersion) console.error(`You are currently using version ${pkgJson.version} and the latest version is ${publicVersion}`)
 
-  // Setup (remove ./tmp, create ./tmp)
-  fs.rmdirSync('tmp', { recursive: true })
-  fs.mkdirSync(path.join('tmp', 'traffic'), { recursive: true })
-
   // Convert ICCID/SimID into ip addresses
   if (simIds.length > 0) {
     await convertSimIdsIntoIps()
-    console.log('Done getting ip addresses from simid\'s')
+    console.log(`Done getting ip addresses from ${simIds.length} simid's`)
   }
   if (iccIds.length > 0) {
     await convertIccIdsIntoIps()
-    console.log('Done getting ip addresses from iccid\'s')
+    console.log(`Done getting ip addresses from ${iccIds.length} iccid's`)
   }
 
   let pcapFilesLocally
@@ -126,21 +123,21 @@ async function run () {
   if (isUsingS3) {
     // Get list of pcap files
     const pcapFilesOnS3 = await getListOfAllPcapFilesOnS3()
-    console.log('Done getting list of pcap files from AWS S3')
+    console.log(`Done getting list of pcap files from AWS S3 (${pcapFilesOnS3.length} objects)`)
 
     // Download all pcap files
     pcapFilesLocally = await downloadAllPcapFilesOnS3(pcapFilesOnS3)
-    console.log('Done downloading pcap files from AWS S3')
+    console.log(`Done downloading pcap files from AWS S3 (${pcapFilesLocally.length} files)`)
   }
 
   // Download pcap files from Blob Storage
   if (isUsingBlobStorage) {
     const pcapFilesOnBlobStorage = await getListOfAllPcapFilesOnBlobStorage()
-    console.log('Done getting list of pcap files from Azure Blob Storage')
+    console.log(`Done getting list of pcap files from Azure Blob Storage (${pcapFilesOnBlobStorage.length} objects)`)
 
     // Download all pcap files
     pcapFilesLocally = await downloadAllPcapFilesOnBlobStorage(pcapFilesOnBlobStorage)
-    console.log('Done downloading pcap files from Azure Blob Storage')
+    console.log(`Done downloading pcap files from Azure Blob Storage (${pcapFilesLocally.length} files)`)
   }
 
   // Filter relevant packets
@@ -151,13 +148,13 @@ async function run () {
 
   // Merge files
   const mergeFilename = await mergePcapFiles(filteredPcapFilesLocally)
-  console.log('Done merging pcap files')
+  console.log(`Done merging pcap files (${filteredPcapFilesLocally.length} files)`)
 
   // Rename file
   fs.renameSync(mergeFilename, 'traffic.pcap')
 
   // Clean up
-  fs.rmdirSync('tmp', { recursive: true })
+  fs.rmdirSync(tmpFolder, { recursive: true })
 
   // Mention where file is
   console.log('\nComplete. File is stored at traffic.pcap')
@@ -181,7 +178,7 @@ async function downloadAllPcapFilesOnBlobStorage (pcapFilesOnBlobStorage) {
 }
 
 async function downloadPcapFileOnBlobStorage (blobStorageFilename) {
-  const pcapFilename = path.join('tmp', 'traffic', blobStorageFilename.replace(/\//g, '-'))
+  const pcapFilename = path.join(tmpFolder, blobStorageFilename.replace(/\//g, '-'))
   const blobServiceClient = blobStorageConnectionString
     ? BlobServiceClient.fromConnectionString(blobStorageConnectionString)
     : new BlobServiceClient(blobStorageSasUri)
@@ -210,7 +207,7 @@ async function downloadAllPcapFilesOnS3 (pcapFilesOnS3) {
 
 async function downloadPcapFileOnS3 (s3Key) {
   return new Promise((resolve, reject) => {
-    const pcapFilename = path.join('tmp', 'traffic', s3Key.replace(/\//g, '-'))
+    const pcapFilename = path.join(tmpFolder, s3Key.replace(/\//g, '-'))
     const stream = fs.createWriteStream(pcapFilename)
     s3.getObject({
       Bucket: s3Bucket,
@@ -243,15 +240,18 @@ async function convertIccIdsIntoIps () {
 async function mergePcapFiles (pcapFilenames) {
   return new Promise((resolve, reject) => {
     log('Merging all pcap files, using mergecap')
-    const mergeFilename = path.join('tmp', 'merged.pcap')
+    const mergeFilename = path.join('merged.pcap')
+    const filename = pcapFilenames.map(filename => path.parse(filename).base)
     const mergecap = spawn('mergecap', [
-      ...pcapFilenames,
+      ...filename,
       '-w', mergeFilename
-    ])
+    ], {
+      cwd: tmpFolder
+    })
     mergecap.on('error', reject)
     mergecap.on('close', () => {
       log('')
-      resolve(mergeFilename)
+      resolve(path.join(tmpFolder, mergeFilename))
     })
   })
 }
@@ -270,7 +270,7 @@ async function filterPcapFiles (filenames, ips) {
 async function filterWithTshark (filename, ips) {
   return new Promise((resolve, reject) => {
     const { dir, base } = path.parse(filename)
-    const filteredFilename = path.join(dir, `filtered-${base}`)
+    const filteredFilename = path.join(dir, `f-${base}`)
     const args = [
       '-r', filename,
       '-w', filteredFilename,
