@@ -92,7 +92,22 @@ const s3 = new AWS.S3({ apiVersion: '2006-03-01' })
 
 run()
 
+function generateFilename () {
+  const name = `Onomondo traffic from ${format(from, 'yyyy-MM-dd HH\'h\'mm\'m\'')} to ${format(to, 'yyyy-MM-dd HH\'h\'mm\'m\'')}`
+  const allIds = [].concat(iccIds).concat(simIds).concat(ips)
+  if (!allIds.length || allIds.length > 5) return `${name}.pcap`
+
+  const hasOneId = allIds.length === 1
+  if (hasOneId) return `${name} for ${allIds.pop()}.pcap`
+
+  const lastId = allIds.pop()
+  const allIdsButTheLast = allIds
+  return `${name} for ${allIdsButTheLast.join(', ')} and ${lastId}.pcap`
+}
+
 async function run () {
+  const finalFilename = generateFilename()
+
   // Check if mergecap exists on local machine
   const hasMergecap = await mergeCapExists()
   if (!hasMergecap) {
@@ -151,13 +166,13 @@ async function run () {
   console.log(`Done merging pcap files (${filteredPcapFilesLocally.length} files)`)
 
   // Rename file
-  fs.renameSync(mergeFilename, 'traffic.pcap')
+  fs.renameSync(mergeFilename, finalFilename)
 
   // Clean up
   fs.rmdirSync(tmpFolder, { recursive: true })
 
   // Mention where file is
-  console.log('\nComplete. File is stored at traffic.pcap')
+  console.log(`\nComplete. File is stored at "${finalFilename}"`)
 }
 
 async function downloadAllPcapFilesOnBlobStorage (pcapFilesOnBlobStorage) {
