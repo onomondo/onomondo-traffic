@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-
 process.env.TZ = 'UTC' // Only work in UTC (I quit if I have to work more with date/time...)
 
 const AWS = require('aws-sdk')
 const fs = require('fs')
-const { parse, format, addDays, startOfDay, isValid } = require('date-fns')
+const { parse, format, addDays, startOfDay, isValid, formatDistanceToNowStrict } = require('date-fns')
 const filesize = require('filesize')
 const log = require('single-line-log').stdout
 const path = require('path')
@@ -124,12 +123,14 @@ async function run () {
 
   // Convert ICCID/SimID into ip addresses
   if (simIds.length > 0) {
+    const startConvertSimIdsIntoIps = new Date()
     await convertSimIdsIntoIps()
-    console.log(`Done getting ip addresses from ${simIds.length} simid's`)
+    console.log(`Done getting ip addresses from ${simIds.length} simid's (${formatDistanceToNowStrict(startConvertSimIdsIntoIps)})`)
   }
   if (iccIds.length > 0) {
+    const startConvertIccIdsIntoIps = new Date()
     await convertIccIdsIntoIps()
-    console.log(`Done getting ip addresses from ${iccIds.length} iccid's`)
+    console.log(`Done getting ip addresses from ${iccIds.length} iccid's (${formatDistanceToNowStrict(startConvertIccIdsIntoIps)})`)
   }
 
   let pcapFilesLocally
@@ -137,33 +138,40 @@ async function run () {
   // Download pcap files from S3
   if (isUsingS3) {
     // Get list of pcap files
+    const startGetListOfAllPcapFilesOnS3 = new Date()
     const pcapFilesOnS3 = await getListOfAllPcapFilesOnS3()
-    console.log(`Done getting list of pcap files from AWS S3 (${pcapFilesOnS3.length} objects)`)
+    console.log(`Done getting list of pcap files from AWS S3 (${pcapFilesOnS3.length} objects - ${formatDistanceToNowStrict(startGetListOfAllPcapFilesOnS3)})`)
 
     // Download all pcap files
+    const startDownloadAllPcapFilesOnS3 = new Date()
     pcapFilesLocally = await downloadAllPcapFilesOnS3(pcapFilesOnS3)
-    console.log(`Done downloading pcap files from AWS S3 (${pcapFilesLocally.length} files)`)
+    console.log(`Done downloading pcap files from AWS S3 (${pcapFilesLocally.length} files - ${formatDistanceToNowStrict(startDownloadAllPcapFilesOnS3)})`)
   }
 
   // Download pcap files from Blob Storage
   if (isUsingBlobStorage) {
+    const startGetListOfAllPcapFilesOnBlobStorage = new Date()
     const pcapFilesOnBlobStorage = await getListOfAllPcapFilesOnBlobStorage()
-    console.log(`Done getting list of pcap files from Azure Blob Storage (${pcapFilesOnBlobStorage.length} objects)`)
+    console.log(`Done getting list of pcap files from Azure Blob Storage (${pcapFilesOnBlobStorage.length} objects - ${formatDistanceToNowStrict(startGetListOfAllPcapFilesOnBlobStorage)})`)
 
     // Download all pcap files
+    const startDownloadAllPcapFilesOnBlobStorage = new Date()
     pcapFilesLocally = await downloadAllPcapFilesOnBlobStorage(pcapFilesOnBlobStorage)
-    console.log(`Done downloading pcap files from Azure Blob Storage (${pcapFilesLocally.length} files)`)
+    console.log(`Done downloading pcap files from Azure Blob Storage (${pcapFilesLocally.length} files - ${formatDistanceToNowStrict(startDownloadAllPcapFilesOnBlobStorage)})`)
   }
 
   // Filter relevant packets
+  const startFilterPcapFiles = new Date()
   const shouldFilter = ips.length > 0
   const filteredPcapFilesLocally = shouldFilter
     ? await filterPcapFiles(pcapFilesLocally, ips)
     : pcapFilesLocally
+  if (shouldFilter) console.log(`Done filtering pcap files (${filteredPcapFilesLocally.length} files - ${formatDistanceToNowStrict(startFilterPcapFiles)})`)
 
   // Merge files
+  const startMergePcapFiles = new Date()
   const mergeFilename = await mergePcapFiles(filteredPcapFilesLocally)
-  console.log(`Done merging pcap files (${filteredPcapFilesLocally.length} files)`)
+  console.log(`Done merging pcap files (${filteredPcapFilesLocally.length} files - ${formatDistanceToNowStrict(startMergePcapFiles)})`)
 
   // Rename file
   fs.renameSync(mergeFilename, finalFilename)
