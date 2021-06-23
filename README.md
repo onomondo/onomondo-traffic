@@ -6,7 +6,7 @@ This is a tool for organizations that are using Onomondo Fleet Storage.
 
 ## Installation
 
-You need to have `node.js` and `wireshark` installed on your system.
+You need to have `node.js`, `wireshark`, and `tcpdump` installed on your system.
 
 Install this way: `$ npm i -g onomondo-traffic`
 

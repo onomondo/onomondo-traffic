@@ -116,6 +116,14 @@ async function run () {
     ].join('\n'))
   }
 
+  // Check if tcpdump exists on local machine
+  const hasTcpdump = await tcpdumpExists()
+  if (!hasTcpdump) {
+    exit([
+      '"tcpdump" is required to be installed to run Onomondo Traffic.'
+    ].join('\n'))
+  }
+
   // Check local version vs public version
   const publicVersion = await getPublicVersion()
   const isUsingCorrectVersion = pkgJson.version === publicVersion
@@ -282,26 +290,26 @@ async function mergePcapFiles (pcapFilenames) {
 async function filterPcapFiles (filenames, ips) {
   const newFilesnames = []
   for (const [index, filename] of filenames.entries()) {
-    log(`Filtering relevant packets, using tshark [${Number(index) + 1}/${filenames.length}]`)
-    const newFilename = await filterWithTshark(filename, ips)
+    log(`Filtering relevant packets, using tcpdump [${Number(index) + 1}/${filenames.length}]`)
+    const newFilename = await filterWithTcpdump(filename, ips)
     newFilesnames.push(newFilename)
   }
 
   return newFilesnames
 }
 
-async function filterWithTshark (filename, ips) {
+async function filterWithTcpdump (filename, ips) {
   return new Promise((resolve, reject) => {
     const { dir, base } = path.parse(filename)
     const filteredFilename = path.join(dir, `f-${base}`)
     const args = [
       '-r', filename,
       '-w', filteredFilename,
-      '-Y', `${ips.map(ip => `ip.addr == ${ip}`).join(' or ')}`
+      `${ips.map(ip => `host ${ip}`).join(' or ')}`
     ]
-    const tshark = spawn('tshark', args)
-    tshark.on('error', reject)
-    tshark.on('close', () => {
+    const tcpdump = spawn('tcpdump', args)
+    tcpdump.on('error', reject)
+    tcpdump.on('close', () => {
       log('')
       resolve(filteredFilename)
     })
@@ -311,6 +319,16 @@ async function filterWithTshark (filename, ips) {
 async function mergeCapExists () {
   return new Promise(resolve => {
     const mergecap = spawn('mergecap', [], {
+      cwd: tmpFolder
+    })
+    mergecap.on('error', () => resolve(false))
+    mergecap.on('close', () => resolve(true))
+  })
+}
+
+async function tcpdumpExists () {
+  return new Promise(resolve => {
+    const mergecap = spawn('tcpdump', ['--version'], {
       cwd: tmpFolder
     })
     mergecap.on('error', () => resolve(false))
