@@ -49,6 +49,7 @@ const hasAllS3Params = s3Bucket && s3Region && awsAccessKeyId && awsSecretAccess
 const hasAllRequiredParams = from && to && (isUsingBlobStorage || isUsingS3)
 const isRangeValid = from < to
 const tmpFolder = fs.mkdtempSync('tmp-')
+let useTcpdump = true
 
 function getParam (param) {
   const isArray = Array.isArray(argv[param]) || Array.isArray(conf[param])
@@ -119,9 +120,12 @@ async function run () {
   // Check if tcpdump exists on local machine
   const hasTcpdump = await tcpdumpExists()
   if (!hasTcpdump) {
-    exit([
-      '"tcpdump" is required to be installed to run Onomondo Traffic.'
+    console.error([
+      'You do not have "tcpdump" installed. Instead onomondo-traffic will use tshark.',
+      'For optimized speeds you should use "tcpdump".',
+      ''
     ].join('\n'))
+    useTcpdump = false
   }
 
   // Check local version vs public version
@@ -290,8 +294,10 @@ async function mergePcapFiles (pcapFilenames) {
 async function filterPcapFiles (filenames, ips) {
   const newFilesnames = []
   for (const [index, filename] of filenames.entries()) {
-    log(`Filtering relevant packets, using tcpdump [${Number(index) + 1}/${filenames.length}]`)
-    const newFilename = await filterWithTcpdump(filename, ips)
+    log(`Filtering relevant packets, using ${useTcpdump ? 'tcpdump' : 'tshark'} [${Number(index) + 1}/${filenames.length}]`)
+    const newFilename = useTcpdump
+      ? await filterWithTcpdump(filename, ips)
+      : await filterWithTshark(filename, ips)
     newFilesnames.push(newFilename)
   }
 
@@ -310,6 +316,24 @@ async function filterWithTcpdump (filename, ips) {
     const tcpdump = spawn('tcpdump', args)
     tcpdump.on('error', reject)
     tcpdump.on('close', () => {
+      log('')
+      resolve(filteredFilename)
+    })
+  })
+}
+
+async function filterWithTshark (filename, ips) {
+  return new Promise((resolve, reject) => {
+    const { dir, base } = path.parse(filename)
+    const filteredFilename = path.join(dir, `f-${base}`)
+    const args = [
+      '-r', filename,
+      '-w', filteredFilename,
+      '-Y', `${ips.map(ip => `ip.addr == ${ip}`).join(' or ')}`
+    ]
+    const tshark = spawn('tshark', args)
+    tshark.on('error', reject)
+    tshark.on('close', () => {
       log('')
       resolve(filteredFilename)
     })
