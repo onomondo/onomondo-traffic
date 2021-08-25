@@ -18,10 +18,10 @@ const ALLOWED_PARAMS = [
   'from', 'to', 'iccid', 'simid', 'ip',
   's3-bucket', 's3-region', 'aws-access-key-id', 'aws-secret-access-key',
   'blob-storage-sas-uri', 'blob-storage-connection-string', 'blob-storage-container-name',
-  'conf', 'token', 'api-url', 'api-headers'
+  'conf', 'token', 'api-url', 'api-headers', 'allow-self-signed-certificates'
 ]
 
-const argv = minimist(process.argv.slice(2), { string: ['simid', 'iccid'] })
+const argv = minimist(process.argv.slice(2), { string: ['simid', 'iccid'], boolean: ['allow-self-signed-certificates'] })
 const confFilename = argv.conf || 'conf.json'
 const conf = fs.existsSync(confFilename) ? JSON.parse(fs.readFileSync(confFilename)) : {}
 const allParams = Object.keys({ ...argv, ...conf })
@@ -40,6 +40,7 @@ const awsSecretAccessKey = getParam('aws-secret-access-key')
 const blobStorageSasUri = getParam('blob-storage-sas-uri')
 const blobStorageConnectionString = getParam('blob-storage-connection-string')
 const blobStorageContainerName = getParam('blob-storage-container-name')
+const allowSelfSignedCertificates = getParam('allow-self-signed-certificates')
 const hasTokenIfNeeded = (iccIds.length || simIds.length) ? !!token : true
 const areDatesValid = isValid(from) && isValid(to)
 const isUsingBlobStorage = blobStorageSasUri || blobStorageConnectionString || blobStorageContainerName
@@ -132,6 +133,12 @@ async function run () {
   const publicVersion = await getPublicVersion()
   const isUsingCorrectVersion = pkgJson.version === publicVersion
   if (!isUsingCorrectVersion) console.error(`You are currently using version ${pkgJson.version} and the latest version is ${publicVersion}\n`)
+
+  // Set NODE_TLS_REJECT_UNAUTHORIZED if allow-self-signed-certificates is set
+  if (allowSelfSignedCertificates) {
+    suppressSelfSignedCertificatesWarning()
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+  }
 
   // Convert ICCID/SimID into ip addresses
   if (simIds.length > 0) {
@@ -432,4 +439,14 @@ function exit (err) {
   console.error()
   console.error('See https://github.com/onomondo/onomondo-traffic for more information')
   process.exit(1)
+}
+
+function suppressSelfSignedCertificatesWarning () {
+  const processEmitWarning = process.emitWarning
+  process.emitWarning = (warning, ...args) => {
+    const isSelfSignedCertificateWarning = warning?.includes?.('NODE_TLS_REJECT_UNAUTHORIZED')
+    if (isSelfSignedCertificateWarning) return
+
+    processEmitWarning.call(process, warning, ...args)
+  }
 }

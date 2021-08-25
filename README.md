@@ -106,6 +106,12 @@ Filter traffic based on this simid. **Requires you to specify --token**
 
 This is the token for Onomondo api. You only need to specify this if you use `--iccid` or `--simid`. This is because `onomondo-traffic` needs to convert the iccid/simid into an ip address.
 
+### --allow-self-signed-certificates (optional)
+
+By default you cannot use self-signed certificates. Setting this allows you to use those.
+
+*You can specify this like `--allow-self-signed-certificates`*
+
 ### --conf
 
 Specify which conf file should be used. This is only available as a command line parameter.
