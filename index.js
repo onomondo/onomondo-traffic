@@ -129,16 +129,17 @@ async function run () {
     useTcpdump = false
   }
 
-  // Check local version vs public version
-  const publicVersion = await getPublicVersion()
-  const isUsingCorrectVersion = pkgJson.version === publicVersion
-  if (!isUsingCorrectVersion) console.error(`You are currently using version ${pkgJson.version} and the latest version is ${publicVersion}\n`)
-
   // Set NODE_TLS_REJECT_UNAUTHORIZED if allow-self-signed-certificates is set
+  // This needs to be set before the `getPackageJson()` is called
   if (allowSelfSignedCertificates) {
     suppressSelfSignedCertificatesWarning()
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
   }
+
+  // Check local version vs public version
+  const publicVersion = await getPublicVersion()
+  const isUsingCorrectVersion = pkgJson.version === publicVersion
+  if (!isUsingCorrectVersion) console.error(`You are currently using version ${pkgJson.version} and the latest version is ${publicVersion}\n`)
 
   // Convert ICCID/SimID into ip addresses
   if (simIds.length > 0) {
