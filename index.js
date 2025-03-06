@@ -431,14 +431,14 @@ async function getPublicVersion () {
 
 function isInRange ({ filename, from, to }) {
   const regex =
-    /(\d{4})\/(\d{2})\/(\d{2})\/(\d{2})\/(\d{2})(?:(\d{2})|-(\d{2}))?(?:-(.+))?\.pcap/;
-  const match = filename.match(regex);
+    /(\d{4})\/(\d{2})\/(\d{2})\/(\d{2})\/(\d{2})(?:(\d{2})|-(\d{2}))?(?:-(.+))?\.pcap/
+  const match = filename.match(regex)
   const [_, year, month, day, hour, minute, concatSeconds, dashSeconds, tag] =
-    match;
-  const second = concatSeconds || dashSeconds || "00";
+    match
+  const second = concatSeconds || dashSeconds || '00'
 
-  const dateString = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
-  const date = parse(dateString, "yyyy-MM-dd HH:mm:ss", new Date());
+  const dateString = `${year}-${month}-${day} ${hour}:${minute}:${second}`
+  const date = parse(dateString, 'yyyy-MM-dd HH:mm:ss', new Date())
 
   const isInRange = from < date && date < to
   return isInRange
