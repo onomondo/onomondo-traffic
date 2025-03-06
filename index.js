@@ -433,7 +433,7 @@ function isInRange ({ filename, from, to }) {
   const regex =
     /(\d{4})\/(\d{2})\/(\d{2})\/(\d{2})\/(\d{2})(?:(\d{2})|-(\d{2}))?(?:-(.+))?\.pcap/
   const match = filename.match(regex)
-  const [_, year, month, day, hour, minute, concatSeconds, dashSeconds, tag] =
+  const [_out, year, month, day, hour, minute, concatSeconds, dashSeconds, _tag] =
     match
   const second = concatSeconds || dashSeconds || '00'
 
